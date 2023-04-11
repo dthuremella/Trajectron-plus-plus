@@ -131,7 +131,7 @@ class Trajectron(object):
 
     def train_loss(self, batch, node_type,
                    lambda_sim=1.0, temp=0.1,
-                   contrastive=False, plm=False, bmc=False, criterion=None):
+                   contrastive=False, plm=False, bmc=False, balanced=False, criterion=None):
         (first_history_index,
          x_t, y_t, x_st_t, y_st_t,
          neighbors_data_st,
@@ -156,7 +156,8 @@ class Trajectron(object):
             for i in range(first_history_index.shape[0]):
                 for j in range(y_t.shape[1]):
                     gt = y_t[i,j]
-                    diff = gt - estimate_kalman_filter(x_t[i],j+1)
+                    hist = x_t[i][~torch.any(x_t[i] != x_t[i],dim=1)] # remove rows with nan's 
+                    diff = gt - estimate_kalman_filter(hist,j+1)
                     scores[i] = scores[i] + np.linalg.norm(diff)
                 scores[i] = scores[i] / y_t.shape[1]
         loss = model.train_loss(inputs=x,
@@ -173,6 +174,7 @@ class Trajectron(object):
                                 contrastive=contrastive,
                                 plm=plm,
                                 bmc=bmc,
+                                balanced=balanced,
                                 criterion=criterion,
                                 temp=temp)
 
@@ -244,7 +246,8 @@ class Trajectron(object):
             for i in range(first_history_index.shape[0]):
                 for j in range(y_t.shape[1]):
                     gt = y_t[i,j]
-                    diff = gt - estimate_kalman_filter(x_t[i],j+1)
+                    hist = x_t[i][~torch.any(x_t[i] != x_t[i],dim=1)] # remove rows with nan's 
+                    diff = gt - estimate_kalman_filter(hist,j+1)
                     score[i] = score[i] + np.linalg.norm(diff)
                 score[i] = score[i] / y_t.shape[1]
             scores = np.hstack((scores, score))

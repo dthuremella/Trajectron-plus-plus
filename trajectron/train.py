@@ -267,7 +267,7 @@ def main():
                 trajectron.step_annealers(node_type)
                 optimizer[node_type].zero_grad()
                 train_loss = trajectron.train_loss(batch, node_type, contrastive=args.contrastive, 
-                                                   plm=args.plm, bmc=args.bmc, criterion=criterion)                
+                            plm=args.plm, bmc=args.bmc, balanced=args.balanced, criterion=criterion)                
                 pbar.set_description(f"Epoch {epoch}, {node_type} L: {train_loss.item():.2f}")
                 train_loss.backward()
                 # Clipping gradients.

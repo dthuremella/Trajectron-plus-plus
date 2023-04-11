@@ -13,6 +13,30 @@ def pareto(a):
     p = (1 + epsilon * a / nu) ** -(1/epsilon + 1)
     return p
 
+def contrastive_three_modes_loss(features, scores, temp=0.1, base_temperature=0.07):
+    device = (torch.device('cuda') if features.is_cuda
+              else torch.device('cpu'))
+    batch_size = features.shape[0] # 25 modes for each example = 25*256 = 6400 rows
+    mask_positives = (torch.abs(scores.sub(scores.T)) < 0.1).float().to(device)
+    mask_negatives = (torch.abs(scores.sub(scores.T)) > 2.0).float().to(device)
+    mask_neutral = mask_positives + mask_negatives
+
+    anchor_dot_contrast = torch.div(torch.matmul(features, features.T), temp)
+    logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+    logits = anchor_dot_contrast - logits_max.detach()
+
+    logits_mask = torch.scatter(
+        torch.ones_like(mask_positives), 1,
+        torch.arange(batch_size).view(-1, 1).to(device), 0) * mask_neutral
+    mask_positives = mask_positives * logits_mask
+    exp_logits = torch.exp(logits) * logits_mask
+    log_prob = logits - torch.log(exp_logits.sum(1, keepdim=True) + 1e-20)
+    mean_log_prob_pos = (mask_positives * log_prob).sum(1) / (mask_positives.sum(1) + 1e-20)
+
+    loss = - (temp / base_temperature) * mean_log_prob_pos
+    loss = loss.view(1, batch_size).mean()
+    return loss 
+
 class MultimodalGenerativeCVAE(object):
     def __init__(self,
                  env,
@@ -806,9 +830,9 @@ class MultimodalGenerativeCVAE(object):
         zx = torch.cat([z, x.repeat(num_samples * num_components, 1)], dim=1)
 
         cell = self.node_modules[self.node_type + '/decoder/rnn_cell']
-        initial_h_model = self.node_modules[self.node_type + '/decoder/initial_h']
+        initial_h_model = self.node_modules[self.node_type + '/decoder/initial_h'] # THE FC after z 
 
-        initial_state = initial_h_model(zx)
+        initial_state = initial_h_model(zx) # 25 modes for each example = 25*256 = 6400 rows
 
         log_pis, mus, log_sigmas, corrs, a_sample = [], [], [], [], []
 
@@ -822,7 +846,6 @@ class MultimodalGenerativeCVAE(object):
                                 x_nr_t.repeat(num_samples * num_components, 1)], dim=1)
         else:
             input_ = torch.cat([zx, a_0.repeat(num_samples * num_components, 1)], dim=1)
-
         for j in range(ph):
             h_state = cell(input_, state)
             log_pi_t, mu_t, log_sigma_t, corr_t = self.project_to_GMM_params(h_state)
@@ -888,7 +911,7 @@ class MultimodalGenerativeCVAE(object):
             sampled_future = self.dynamic.integrate_samples(a_sample, x)
             return y_dist, sampled_future
         else:
-            return y_dist
+            return y_dist, initial_state
 
     def encoder(self, mode, x, y_e, num_samples=None):
         """
@@ -944,14 +967,14 @@ class MultimodalGenerativeCVAE(object):
         """
 
         num_components = self.hyperparams['N'] * self.hyperparams['K']
-        y_dist = self.p_y_xz(mode, x, x_nr_t, y_r, n_s_t0, z,
+        y_dist, initial_state = self.p_y_xz(mode, x, x_nr_t, y_r, n_s_t0, z,
                              prediction_horizon, num_samples, num_components=num_components)
         log_p_yt_xz = torch.clamp(y_dist.log_prob(labels), max=self.hyperparams['log_p_yt_xz_max'])
         if self.hyperparams['log_histograms'] and self.log_writer is not None:
             self.log_writer.add_histogram('%s/%s' % (str(self.node_type), 'log_p_yt_xz'), log_p_yt_xz, self.curr_iter)
 
         log_p_y_xz = torch.sum(log_p_yt_xz, dim=2)
-        return log_p_y_xz
+        return log_p_y_xz, initial_state
 
     def train_loss(self,
                    inputs,
@@ -968,6 +991,7 @@ class MultimodalGenerativeCVAE(object):
                    contrastive=False,
                    plm=False,
                    bmc=False,
+                   balanced=False,
                    criterion=None,
                    temp=0.1) -> torch.Tensor:
         """
@@ -1000,14 +1024,13 @@ class MultimodalGenerativeCVAE(object):
                                                                      map=map)
 
         z, kl = self.encoder(mode, x, y_e)
-        log_p_y_xz = self.decoder(mode, x, x_nr_t, y, y_r, n_s_t0, z,
+        log_p_y_xz, initial_state = self.decoder(mode, x, x_nr_t, y, y_r, n_s_t0, z,
                                   labels,  # Loss is calculated on unstandardized label
                                   prediction_horizon,
                                   self.hyperparams['k'])
-
         log_p_y_xz_mean = torch.mean(log_p_y_xz, dim=0)  # [nbs]
         if plm:
-            lamda = 0.75
+            lamda = 0.25
             plm_loss = 1 - pareto(-log_p_y_xz_mean)
             log_p_y_xz_mean = (1-lamda) * log_p_y_xz_mean - lamda * plm_loss * 100
         log_likelihood = torch.mean(log_p_y_xz_mean)
@@ -1015,15 +1038,28 @@ class MultimodalGenerativeCVAE(object):
         mutual_inf_q = mutual_inf_mc(self.latent.q_dist)
         mutual_inf_p = mutual_inf_mc(self.latent.p_dist)
 
+        if balanced:
+            device = (torch.device('cuda') if y.is_cuda
+                    else torch.device('cpu'))
+            log_p_y_xz__balanced = self.decoder(mode, x, x_nr_t, y, y_r, n_s_t0, z,
+                                  labels.unsqueeze(1),  # Loss is calculated on unstandardized label
+                                  prediction_horizon,
+                                  self.hyperparams['k'])
+            balanced_log_likelihood = F.cross_entropy(log_p_y_xz__balanced, 
+                                    torch.arange(log_p_y_xz__balanced.shape[0]).to(device))
+            lamda = 1.0
+            log_likelihood = (1 - lamda) * log_likelihood + lamda * balanced_log_likelihood
+
         ELBO = log_likelihood - self.kl_weight * kl + 1. * mutual_inf_p
         loss = -ELBO
 
         if contrastive:
+            scores = score.unsqueeze(1).repeat(self.latent.z_dim, 1)
             factor_con = 1.0  #(originally 1.0 in Makansi)
-            con_loss = criterion(x, score)
+            con_loss = contrastive_three_modes_loss(initial_state, scores) # 25 modes for each example = 25*256 = 6400 rows
             loss = loss + factor_con * con_loss
         elif bmc:
-            lamda = 0.9
+            lamda = 0.5
             loss = (1 - lamda) * loss + lamda * criterion(y, labels) / 10
 
         if self.hyperparams['log_histograms'] and self.log_writer is not None:

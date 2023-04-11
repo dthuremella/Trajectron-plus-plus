@@ -49,7 +49,6 @@ def bmc_loss_md(y, labels, noise_var):
     logits = MVN(pred.unsqueeze(1), noise_var*I).log_prob(target.unsqueeze(0)).to(device)  # logit size: [batch, batch]
     loss = F.cross_entropy(logits, torch.arange(pred.shape[0]).to(device))     # contrastive-like loss
     loss = loss * (2 * noise_var).detach()  # optional: restore the loss scale, 'detach' when noise is learnable 
-    
     return loss
 
 class BMCLoss(_Loss):

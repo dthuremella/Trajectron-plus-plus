@@ -162,6 +162,10 @@ parser.add_argument('--bmc',
                     help="whether to add batch monte carlo loss",
                     action='store_true')
 
+parser.add_argument('--balanced',
+                    help="whether to add GMM-based balancing to loss",
+                    action='store_true')
+
 parser.add_argument('--seed',
                     help='manual seed to use, default is 123',
                     type=int,

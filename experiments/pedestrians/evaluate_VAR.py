@@ -68,7 +68,7 @@ if __name__ == "__main__":
         ############### MOST LIKELY ###############
         eval_ade_batch_errors = np.array([])
         eval_fde_batch_errors = np.array([])
-        kalman_errors = np.array([])
+        # kalman_errors = np.array([])
         print("-- Evaluating GMM Grid Sampled (Most Likely)")
         for i, scene in enumerate(scenes):
             print(f"---- Evaluating Scene {i + 1}/{len(scenes)}")
@@ -82,11 +82,11 @@ if __name__ == "__main__":
                                            z_mode=False,
                                            gmm_mode=True,
                                            full_dist=True)  # This will trigger grid sampling
-            kalman_error = eval_stg.make_kalman(scene,
-                                            timesteps,
-                                            min_history_timesteps=7,
-                                            min_future_timesteps=12)
-            kalman_errors = np.hstack((kalman_errors, kalman_error))
+            # kalman_error = eval_stg.make_kalman(scene,
+            #                                 timesteps,
+            #                                 min_history_timesteps=7,
+            #                                 min_future_timesteps=12)
+            # kalman_errors = np.hstack((kalman_errors, kalman_error))
             batch_error_dict = evaluation.compute_batch_statistics(predictions,
                                                                    scene.dt,
                                                                    max_hl=max_hl,
@@ -103,22 +103,21 @@ if __name__ == "__main__":
                 eval_ade_batch_errors.mean(),
                 eval_fde_batch_errors.mean(),
                 total_number_testing_samples))
-            assert kalman_errors.shape[0] == eval_fde_batch_errors.shape[0]
-            largest_errors_indexes = np.argsort(kalman_errors)
-            mask = np.ones(eval_ade_batch_errors.shape, dtype=bool)
-            for top_index in range(1, 4):
-                challenging = largest_errors_indexes[-int(
-                    total_number_testing_samples * top_index / 100):]
-                fde_errors_challenging = np.copy(eval_fde_batch_errors)
-                ade_errors_challenging = np.copy(eval_ade_batch_errors)
-                mask[challenging] = False
-                fde_errors_challenging[mask] = 0
-                ade_errors_challenging[mask] = 0
-                print('Challenging Top %d (ADE/FDE): %.2f/ %.2f   --- %d' %
+            # assert kalman_errors.shape[0] == eval_fde_batch_errors.shape[0]
+            # largest_errors_indexes = np.argsort(kalman_errors)
+            # mask = np.ones(eval_ade_batch_errors.shape, dtype=bool)
+            for top_index in [95, 98, 99]:
+                # challenging = largest_errors_indexes[-int(
+                #     total_number_testing_samples * top_index / 100):]
+                # fde_errors_challenging = np.copy(eval_fde_batch_errors)
+                # ade_errors_challenging = np.copy(eval_ade_batch_errors)
+                # mask[challenging] = False
+                # fde_errors_challenging[mask] = 0
+                # ade_errors_challenging[mask] = 0
+                print('Challenging Top %dVAR (ADE/FDE): %.2f/ %.2f   ---' %
                         (top_index,
-                        np.sum(ade_errors_challenging) / len(challenging),
-                        np.sum(fde_errors_challenging) / len(challenging),
-                        len(challenging)))   
+                        np.percentile(eval_ade_batch_errors, top_index),
+                        np.percentile(eval_fde_batch_errors, top_index)))   
         pd.DataFrame({'value': eval_ade_batch_errors, 'metric': 'ade', 'type': 'ml'}
                      ).to_csv(os.path.join(args.output_path, args.output_tag + '_ade_most_likely.csv'))
         pd.DataFrame({'value': eval_fde_batch_errors, 'metric': 'fde', 'type': 'ml'}
@@ -168,7 +167,7 @@ if __name__ == "__main__":
         ############### BEST OF 20 ###############
         eval_ade_batch_errors = np.array([])
         eval_fde_batch_errors = np.array([])
-        kalman_errors = np.array([])
+        # kalman_errors = np.array([])
         eval_kde_nll = np.array([])
         print("-- Evaluating best of 20")
         for i, scene in enumerate(scenes):
@@ -184,13 +183,14 @@ if __name__ == "__main__":
                                                z_mode=False,
                                                gmm_mode=False,
                                                full_dist=False)
+                # kalman_error = eval_stg.make_kalman(scene,
+                #                                 timesteps,
+                #                                 min_history_timesteps=7,
+                #                                 min_future_timesteps=12)
+                # kalman_errors = np.hstack((kalman_errors, kalman_error))
+
                 if not predictions:
                     continue
-                kalman_error = eval_stg.make_kalman(scene,
-                                                timesteps,
-                                                min_history_timesteps=7,
-                                                min_future_timesteps=12)
-                kalman_errors = np.hstack((kalman_errors, kalman_error))
 
                 batch_error_dict = evaluation.compute_batch_statistics(predictions,
                                                                        scene.dt,
@@ -208,22 +208,21 @@ if __name__ == "__main__":
                 eval_ade_batch_errors.mean(),
                 eval_fde_batch_errors.mean(),
                 total_number_testing_samples))
-            assert kalman_errors.shape[0] == eval_fde_batch_errors.shape[0]
-            largest_errors_indexes = np.argsort(kalman_errors)
-            mask = np.ones(eval_ade_batch_errors.shape, dtype=bool)
-            for top_index in range(1, 4):
-                challenging = largest_errors_indexes[-int(
-                    total_number_testing_samples * top_index / 100):]
-                fde_errors_challenging = np.copy(eval_fde_batch_errors)
-                ade_errors_challenging = np.copy(eval_ade_batch_errors)
-                mask[challenging] = False
-                fde_errors_challenging[mask] = 0
-                ade_errors_challenging[mask] = 0
-                print('Challenging Top %d (ADE/FDE): %.2f/ %.2f   --- %d' %
+            # assert kalman_errors.shape[0] == eval_fde_batch_errors.shape[0]
+            # largest_errors_indexes = np.argsort(kalman_errors)
+            # mask = np.ones(eval_ade_batch_errors.shape, dtype=bool)
+            for top_index in [95,98,99]:
+                # challenging = largest_errors_indexes[-int(
+                #     total_number_testing_samples * top_index / 100):]
+                # fde_errors_challenging = np.copy(eval_fde_batch_errors)
+                # ade_errors_challenging = np.copy(eval_ade_batch_errors)
+                # mask[challenging] = False
+                # fde_errors_challenging[mask] = 0
+                # ade_errors_challenging[mask] = 0
+                print('Challenging Top %dVAR (ADE/FDE): %.2f/ %.2f   ---' %
                         (top_index,
-                        np.sum(ade_errors_challenging) / len(challenging),
-                        np.sum(fde_errors_challenging) / len(challenging),
-                        len(challenging)))        
+                        np.percentile(eval_ade_batch_errors, top_index),
+                        np.percentile(eval_fde_batch_errors, top_index)))         
         pd.DataFrame({'value': eval_ade_batch_errors, 'metric': 'ade', 'type': 'best_of'}
                      ).to_csv(os.path.join(args.output_path, args.output_tag + '_ade_best_of.csv'))
         pd.DataFrame({'value': eval_fde_batch_errors, 'metric': 'fde', 'type': 'best_of'}

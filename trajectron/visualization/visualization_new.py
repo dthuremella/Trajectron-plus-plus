@@ -17,7 +17,7 @@ def plot_trajectories(ax,
                       circle_edge_width=0.5,
                       node_circle_size=0.3,
                       batch_num=0,
-                      baseline=False,
+                      color='b',
                       kde=False):
 
     cmap = ['k', 'b', 'y', 'g', 'r']
@@ -42,7 +42,7 @@ def plot_trajectories(ax,
                                 color=np.random.choice(cmap), alpha=0.8)
 
             ax.plot(predictions[batch_num, sample_num, :, 0], predictions[batch_num, sample_num, :, 1],
-                    color=cmap[node.type.value] if baseline else cmap[node.type.value + 3],
+                    color=color,
                     linewidth=line_width, alpha=line_alpha)
 
             ax.plot(future[:, 0],
@@ -65,8 +65,12 @@ def plot_trajectories(ax,
 
 def visualize_prediction(prediction_output_dict1,
                          prediction_output_dict2,
+                         prediction_output_dict3,
+                         prediction_output_dict4,
                          batch_error_dict1,
                          batch_error_dict2,
+                         batch_error_dict3,
+                         batch_error_dict4,
                          dt,
                          max_hl,
                          ph,
@@ -84,10 +88,22 @@ def visualize_prediction(prediction_output_dict1,
                                                                                       max_hl,
                                                                                       ph,
                                                                                       map=map)
+    prediction_dict3, histories_dict3, futures_dict3 = prediction_output_to_trajectories(prediction_output_dict3,
+                                                                                      dt,
+                                                                                      max_hl,
+                                                                                      ph,
+                                                                                      map=map)
+    prediction_dict4, histories_dict4, futures_dict4 = prediction_output_to_trajectories(prediction_output_dict4,
+                                                                                      dt,
+                                                                                      max_hl,
+                                                                                      ph,
+                                                                                      map=map)
     if len(prediction_dict1.keys()) == 0:
         return
     # ts_key = list(prediction_dict.keys())[0]
     for i, ts_key in enumerate(prediction_dict1.keys()):
+        if batch_error_dict1[i] < 1.67:
+            continue
         fig, ax = plt.subplots()
         node = list(prediction_dict1[ts_key].keys())[0]
         p_d1 = prediction_dict1[ts_key]
@@ -97,10 +113,20 @@ def visualize_prediction(prediction_output_dict1,
         h_d2 = histories_dict2[ts_key]
         f_d2 = futures_dict2[ts_key]
 
+        p_d3 = prediction_dict3[ts_key]
+        h_d3 = histories_dict3[ts_key]
+        f_d3 = futures_dict3[ts_key]
+
+        p_d4 = prediction_dict4[ts_key]
+        h_d4 = histories_dict4[ts_key]
+        f_d4 = futures_dict4[ts_key]                
+
         if map is not None:
             ax.imshow(map[ts_key][node].as_image(), origin='lower', alpha=0.5)
-        plot_trajectories(ax, p_d1, h_d1, f_d1, *kwargs)
-        plot_trajectories(ax, p_d2, h_d2, f_d2, baseline=True, *kwargs)
+        plot_trajectories(ax, p_d1, h_d1, f_d1, color='b', *kwargs)
+        plot_trajectories(ax, p_d2, h_d2, f_d2, color='r', *kwargs)
+        plot_trajectories(ax, p_d3, h_d3, f_d3, color='y', *kwargs)
+        plot_trajectories(ax, p_d4, h_d4, f_d4, color='g', *kwargs)
         ax.title.set_text('ADE error of {} with baseline error {}'.format(batch_error_dict1[i],batch_error_dict2[i]))
         plt.show()
 

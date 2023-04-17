@@ -785,7 +785,10 @@ class MultimodalGenerativeCVAE(object):
             h = x
 
         to_latent = self.node_modules[self.node_type + '/hx_to_z']
-        return self.latent.dist_from_h(to_latent(h), mode)
+        if mode == ModeKeys.TRAIN:
+            return self.latent.dist_from_h(to_latent(h), mode), h
+        else:
+            return self.latent.dist_from_h(to_latent(h), mode)
 
     def project_to_GMM_params(self, tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
         """
@@ -936,7 +939,7 @@ class MultimodalGenerativeCVAE(object):
                 raise ValueError("num_samples cannot be None with mode == PREDICT.")
 
         self.latent.q_dist = self.q_z_xy(mode, x, y_e)
-        self.latent.p_dist = self.p_z_x(mode, x)
+        self.latent.p_dist, h = self.p_z_x(mode, x)
 
         z = self.latent.sample_q(sample_ct, mode)
 
@@ -947,7 +950,10 @@ class MultimodalGenerativeCVAE(object):
         else:
             kl_obj = None
 
-        return z, kl_obj
+        if mode == ModeKeys.TRAIN:
+            return z, kl_obj, h
+        else:
+            return z, kl_obj
 
     def decoder(self, mode, x, x_nr_t, y, y_r, n_s_t0, z, labels, prediction_horizon, num_samples):
         """
@@ -1023,7 +1029,7 @@ class MultimodalGenerativeCVAE(object):
                                                                      robot=robot,
                                                                      map=map)
 
-        z, kl = self.encoder(mode, x, y_e)
+        z, kl, h = self.encoder(mode, x, y_e)
         log_p_y_xz, initial_state = self.decoder(mode, x, x_nr_t, y, y_r, n_s_t0, z,
                                   labels,  # Loss is calculated on unstandardized label
                                   prediction_horizon,
@@ -1054,9 +1060,10 @@ class MultimodalGenerativeCVAE(object):
         loss = -ELBO
 
         if contrastive:
-            scores = score.unsqueeze(1).repeat(self.latent.z_dim, 1)
+            # scores = score.unsqueeze(1).repeat(self.latent.z_dim, 1) # only if z is initial_state
+            scores = score.contiguous().view(-1, 1) # if z is not initial_state
             factor_con = 1.0  #(originally 1.0 in Makansi)
-            con_loss = contrastive_three_modes_loss(initial_state, scores) # 25 modes for each example = 25*256 = 6400 rows
+            con_loss = contrastive_three_modes_loss(h, scores) # when z is initial_state, 25 modes for each example = 25*256 = 6400 rows
             loss = loss + factor_con * con_loss
         elif bmc:
             lamda = 0.5

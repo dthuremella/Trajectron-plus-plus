@@ -26,6 +26,8 @@ if torch.cuda.is_available():
 parser = argparse.ArgumentParser()
 parser.add_argument("--model1", help="model full path", type=str)
 parser.add_argument("--model2", help="model full path", type=str)
+parser.add_argument("--model3", help="model full path", type=str)
+parser.add_argument("--model4", help="model full path", type=str)
 parser.add_argument("--checkpoint", help="model checkpoint to evaluate", type=int)
 parser.add_argument("--data", help="full path to data file", type=str)
 parser.add_argument("--output_path", help="path to output csv file", type=str)
@@ -53,6 +55,8 @@ if __name__ == "__main__":
 
     eval_stg1, hyperparams1 = load_model(args.model1, env, ts=args.checkpoint)
     eval_stg2, hyperparams2 = load_model(args.model2, env, ts=args.checkpoint)
+    eval_stg3, hyperparams3 = load_model(args.model3, env, ts=args.checkpoint)
+    eval_stg4, hyperparams4 = load_model(args.model4, env, ts=args.checkpoint)
 
     if 'override_attention_radius' in hyperparams1:
         for attention_radius_override in hyperparams1['override_attention_radius']:
@@ -71,69 +75,107 @@ if __name__ == "__main__":
     max_hl = hyperparams1['maximum_history_length']
 
     with torch.no_grad():
-        ############### MOST LIKELY ###############
-        eval_ade_batch_errors = np.array([])
-        eval_fde_batch_errors = np.array([])
-        print("-- Evaluating GMM Grid Sampled (Most Likely)")
-        for i, scene in enumerate(scenes):
-            print(f"---- Evaluating Scene {i + 1}/{len(scenes)}")
-            timesteps = np.arange(scene.timesteps)
-            predictions1 = eval_stg1.predict(scene,
-                                           timesteps,
-                                           ph,
-                                           num_samples=1,
-                                           min_history_timesteps=7,
-                                           min_future_timesteps=12,
-                                           z_mode=False,
-                                           gmm_mode=True,
-                                           full_dist=True)  # This will trigger grid sampling
+        # ############### MOST LIKELY ###############
+        # eval_ade_batch_errors = np.array([])
+        # eval_fde_batch_errors = np.array([])
+        # print("-- Evaluating GMM Grid Sampled (Most Likely)")
+        # for i, scene in enumerate(scenes):
+        #     print(f"---- Evaluating Scene {i + 1}/{len(scenes)}")
+        #     timesteps = np.arange(scene.timesteps)
+        #     predictions1 = eval_stg1.predict(scene,
+        #                                    timesteps,
+        #                                    ph,
+        #                                    num_samples=1,
+        #                                    min_history_timesteps=7,
+        #                                    min_future_timesteps=12,
+        #                                    z_mode=False,
+        #                                    gmm_mode=True,
+        #                                    full_dist=True)  # This will trigger grid sampling
 
-            predictions2 = eval_stg2.predict(scene,
-                                           timesteps,
-                                           ph,
-                                           num_samples=1,
-                                           min_history_timesteps=7,
-                                           min_future_timesteps=12,
-                                           z_mode=False,
-                                           gmm_mode=True,
-                                           full_dist=True)  # This will trigger grid sampling
+        #     predictions2 = eval_stg2.predict(scene,
+        #                                    timesteps,
+        #                                    ph,
+        #                                    num_samples=1,
+        #                                    min_history_timesteps=7,
+        #                                    min_future_timesteps=12,
+        #                                    z_mode=False,
+        #                                    gmm_mode=True,
+        #                                    full_dist=True)  # This will trigger grid sampling
 
-            batch_error_dict1 = evaluation.compute_batch_statistics(predictions1,
-                                                                   scene.dt,
-                                                                   max_hl=max_hl,
-                                                                   ph=ph,
-                                                                   node_type_enum=env.NodeType,
-                                                                   map=None,
-                                                                   prune_ph_to_future=True,
-                                                                   kde=False)
-            batch_error_dict2 = evaluation.compute_batch_statistics(predictions2,
-                                                                   scene.dt,
-                                                                   max_hl=max_hl,
-                                                                   ph=ph,
-                                                                   node_type_enum=env.NodeType,
-                                                                   map=None,
-                                                                   prune_ph_to_future=True,
-                                                                   kde=False)
-            ############ VISUALIZE ##############
-            visualization_new.visualize_prediction(
-                predictions1, predictions2, batch_error_dict1[args.node_type]['ade'], batch_error_dict2[args.node_type]['ade'],
-                scene.dt, max_hl=max_hl, ph=ph, map=None)
-            plt.show()
-            import pdb; pdb.set_trace()
+        #     predictions3 = eval_stg3.predict(scene,
+        #                                     timesteps,
+        #                                     ph,
+        #                                     num_samples=1,
+        #                                     min_history_timesteps=7,
+        #                                     min_future_timesteps=12,
+        #                                     z_mode=False,
+        #                                     gmm_mode=True,
+        #                                     full_dist=True)  # This will trigger grid sampling
 
-            eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict1[args.node_type]['ade']))
-            eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict1[args.node_type]['fde']))
-            total_number_testing_samples = eval_fde_batch_errors.shape[0]
-            print('All         (ADE/FDE): %.2f/ %.2f   --- %d' % (
-                eval_ade_batch_errors.mean(),
-                eval_fde_batch_errors.mean(),
-                total_number_testing_samples))
+        #     predictions4 = eval_stg4.predict(scene,
+        #                                     timesteps,
+        #                                     ph,
+        #                                     num_samples=1,
+        #                                     min_history_timesteps=7,
+        #                                     min_future_timesteps=12,
+        #                                     z_mode=False,
+        #                                     gmm_mode=True,
+        #                                     full_dist=True)  # This will trigger grid sampling
+
+        #     batch_error_dict1 = evaluation.compute_batch_statistics(predictions1,
+        #                                                            scene.dt,
+        #                                                            max_hl=max_hl,
+        #                                                            ph=ph,
+        #                                                            node_type_enum=env.NodeType,
+        #                                                            map=None,
+        #                                                            prune_ph_to_future=True,
+        #                                                            kde=False)
+        #     batch_error_dict2 = evaluation.compute_batch_statistics(predictions2,
+        #                                                            scene.dt,
+        #                                                            max_hl=max_hl,
+        #                                                            ph=ph,
+        #                                                            node_type_enum=env.NodeType,
+        #                                                            map=None,
+        #                                                            prune_ph_to_future=True,
+        #                                                            kde=False)
+        #     batch_error_dict3 = evaluation.compute_batch_statistics(predictions3,
+        #                                                            scene.dt,
+        #                                                            max_hl=max_hl,
+        #                                                            ph=ph,
+        #                                                            node_type_enum=env.NodeType,
+        #                                                            map=None,
+        #                                                            prune_ph_to_future=True,
+        #                                                            kde=False)
+        #     batch_error_dict4 = evaluation.compute_batch_statistics(predictions4,
+        #                                                            scene.dt,
+        #                                                            max_hl=max_hl,
+        #                                                            ph=ph,
+        #                                                            node_type_enum=env.NodeType,
+        #                                                            map=None,
+        #                                                            prune_ph_to_future=True,
+        #                                                            kde=False)                                                                                                                                      
+        #     ############ VISUALIZE ##############
+        #     visualization_new.visualize_prediction(
+        #         predictions1, predictions2, predictions3, predictions4,
+        #         batch_error_dict1[args.node_type]['ade'], batch_error_dict2[args.node_type]['ade'],
+        #         batch_error_dict3[args.node_type]['ade'], batch_error_dict4[args.node_type]['ade'],
+        #         scene.dt, max_hl=max_hl, ph=ph, map=None)
+        #     plt.show()
+        #     import pdb; pdb.set_trace()
+
+        #     eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict1[args.node_type]['ade']))
+        #     eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict1[args.node_type]['fde']))
+        #     total_number_testing_samples = eval_fde_batch_errors.shape[0]
+        #     print('All         (ADE/FDE): %.2f/ %.2f   --- %d' % (
+        #         eval_ade_batch_errors.mean(),
+        #         eval_fde_batch_errors.mean(),
+        #         total_number_testing_samples))
                 
-        print(np.mean(eval_fde_batch_errors))
-        pd.DataFrame({'value': eval_ade_batch_errors, 'metric': 'ade', 'type': 'ml'}
-                     ).to_csv(os.path.join(args.output_path, args.output_tag + '_ade_most_likely.csv'))
-        pd.DataFrame({'value': eval_fde_batch_errors, 'metric': 'fde', 'type': 'ml'}
-                     ).to_csv(os.path.join(args.output_path, args.output_tag + '_fde_most_likely.csv'))
+        # print(np.mean(eval_fde_batch_errors))
+        # pd.DataFrame({'value': eval_ade_batch_errors, 'metric': 'ade', 'type': 'ml'}
+        #              ).to_csv(os.path.join(args.output_path, args.output_tag + '_ade_most_likely.csv'))
+        # pd.DataFrame({'value': eval_fde_batch_errors, 'metric': 'fde', 'type': 'ml'}
+        #              ).to_csv(os.path.join(args.output_path, args.output_tag + '_fde_most_likely.csv'))
 
 
         ############### BEST OF 20 ###############
@@ -164,6 +206,24 @@ if __name__ == "__main__":
                                                z_mode=False,
                                                gmm_mode=False,
                                                full_dist=False)
+                predictions3 = eval_stg3.predict(scene,
+                                               timesteps,
+                                               ph,
+                                               num_samples=20,
+                                               min_history_timesteps=7,
+                                               min_future_timesteps=12,
+                                               z_mode=False,
+                                               gmm_mode=False,
+                                               full_dist=False)
+                predictions4 = eval_stg4.predict(scene,
+                                               timesteps,
+                                               ph,
+                                               num_samples=20,
+                                               min_history_timesteps=7,
+                                               min_future_timesteps=12,
+                                               z_mode=False,
+                                               gmm_mode=False,
+                                               full_dist=False)                                                                                              
                 # kalman_error = eval_stg.make_kalman(scene,
                 #                                 timesteps,
                 #                                 min_history_timesteps=7,
@@ -189,9 +249,27 @@ if __name__ == "__main__":
                                                                        map=None,
                                                                        best_of=True,
                                                                        prune_ph_to_future=True)                                                                    
+                batch_error_dict3 = evaluation.compute_batch_statistics(predictions3,
+                                                                       scene.dt,
+                                                                       max_hl=max_hl,
+                                                                       ph=ph,
+                                                                       node_type_enum=env.NodeType,
+                                                                       map=None,
+                                                                       best_of=True,
+                                                                       prune_ph_to_future=True)
+                batch_error_dict4 = evaluation.compute_batch_statistics(predictions4,
+                                                                       scene.dt,
+                                                                       max_hl=max_hl,
+                                                                       ph=ph,
+                                                                       node_type_enum=env.NodeType,
+                                                                       map=None,
+                                                                       best_of=True,
+                                                                       prune_ph_to_future=True)                                                                    
                 ############ VISUALIZE ##############
                 visualization_new.visualize_prediction(
-                    predictions1, predictions2, batch_error_dict1[args.node_type]['ade'], batch_error_dict2[args.node_type]['ade'],
+                    predictions1, predictions2, predictions3, predictions4, 
+                    batch_error_dict1[args.node_type]['ade'], batch_error_dict2[args.node_type]['ade'],
+                    batch_error_dict3[args.node_type]['ade'], batch_error_dict4[args.node_type]['ade'],
                     scene.dt, max_hl=max_hl, ph=ph, map=None)
                 plt.show()
             

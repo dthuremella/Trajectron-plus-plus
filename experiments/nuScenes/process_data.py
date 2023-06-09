@@ -398,13 +398,12 @@ def process_scene(ns_scene, env, nusc, data_path):
     return scene
 
 
-
 def process_data(data_path, version, output_path, val_split):
     nusc = NuScenes(version=version, dataroot=data_path, verbose=True)
     splits = create_splits_scenes()
     train_scenes, val_scenes = train_test_split(splits['train' if 'mini' not in version else 'mini_train'], test_size=val_split)
     train_scene_names = splits['train' if 'mini' not in version else 'mini_train']
-    val_scene_names = []#val_scenes
+    val_scene_names = val_scenes
     test_scene_names = splits['val' if 'mini' not in version else 'mini_val']
 
     ns_scene_names = dict()
